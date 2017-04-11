@@ -45,7 +45,7 @@ namespace Mapbox.Mono {
 			_hwr = WebRequest.Create(url) as HttpWebRequest;
 			_hwr.Method = "GET";
 			_hwr.UserAgent = "mapbox-sdk-cs";
-			_hwr.AutomaticDecompression = DecompressionMethods.GZip;
+			_hwr.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
 			_hwr.CachePolicy = _cachePolicy;
 			//_hwr.Timeout = timeOut * 1000; doesn't work in async calls, see below
 
