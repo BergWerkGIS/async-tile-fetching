@@ -1,5 +1,4 @@
-﻿using Mapbox.Mono;
-using Mapbox.Platform;
+﻿using Mapbox.Platform;
 using Mapbox.VectorTile;
 using System;
 using System.Collections.Generic;
@@ -39,16 +38,23 @@ namespace async_tile_fetching {
 			//while (!request.IsCompleted) { }
 
 
-			//https://api.mapbox.com/v4/mapbox.mapbox-streets-v7/14/3410/6200.vector.pbf?access_token=pk.eyJ1IjoiZGF2aWRyaG9kZXMiLCJhIjoiY2owd3htdmlmMDA2bDMybmRyNzZ0ZWd0YSJ9.p3D6QfRRpcd0jQDDvrWTaA
+			//https://api.mapbox.com/v4/mapbox.mapbox-streets-v7/14/3410/6200.vector.pbf
 
+			//for (int i = 0; i < 10; i++) {
 			//for (int x = 74904; x < 74984; x++) {
+			for (int x = 74983; x < 74984; x++) {
 
-				HTTPRequest_v2 request = (HTTPRequest_v2)fs.Request(
+				HTTPRequest request = (HTTPRequest)fs.Request(
 					//"https://a.tiles.mapbox.com/v4/mapbox.mapbox-streets-v7/18/74984/100276.vector.pbf"
-					/*//string.Format("https://a.tiles.mapbox.com/v4/mapbox.mapbox-streets-v7/18/{0}/100276.vector.pbf", x)*/
-					"https://api.mapbox.com/v4/mapbox.mapbox-streets-v7/14/3410/6200.vector.pbf"
+					string.Format("https://a.tiles.mapbox.com/v4/mapbox.mapbox-streets-v7/18/{0}/100276.vector.pbf", x)
+					//"https://api.mapbox.com/v4/mapbox.mapbox-streets-v7/14/3410/6200.vector.pbf"
 					, (Response r) => {
-						//Console.WriteLine(string.Format("{3} --- LimitInterval:{0} LimitLimit:{1} LimitReset:{2}", r.XRateLimitInterval, r.XRateLimitLimit, r.XRateLimitReset, x));
+						if (r.RateLimitHit) {
+							Console.WriteLine(string.Format("{3} statuscode:{4} rate limit hit:{5} --- LimitInterval:{0} LimitLimit:{1} LimitReset:{2}", r.XRateLimitInterval, r.XRateLimitLimit, r.XRateLimitReset, x, r.StatusCode, r.RateLimitHit));
+						}
+						if (r.StatusCode != 200) {
+							Console.WriteLine(Encoding.UTF8.GetString(r.Data));
+						}
 						if (null != r.Exceptions && r.Exceptions.Count > 0) {
 							Console.WriteLine();
 							foreach (var ex in r.Exceptions) {
@@ -57,20 +63,22 @@ namespace async_tile_fetching {
 							Console.WriteLine();
 							return;
 						}
-						VectorTile vt = new VectorTile(r.Data);
-						Console.WriteLine(string.Join(", ", vt.LayerNames().ToArray()));
-						VectorTileLayer roads= vt.GetLayer("road");
-						int featCnt = roads.FeatureCount();
-						for (int i = 0; i < featCnt; i++) {
-							VectorTileFeature feat = roads.GetFeature(i);
-							foreach (var p in feat.GetProperties()) {
-								Console.WriteLine(string.Format("{0}:{1}", p.Key, p.Value));
-							}
-						}
+
+						//VectorTile vt = new VectorTile(r.Data);
+						//Console.WriteLine(string.Join(", ", vt.LayerNames().ToArray()));
+						//VectorTileLayer roads= vt.GetLayer("road");
+						//int featCnt = roads.FeatureCount();
+						//for (int i = 0; i < featCnt; i++) {
+						//	VectorTileFeature feat = roads.GetFeature(i);
+						//	foreach (var p in feat.GetProperties()) {
+						//		Console.WriteLine(string.Format("{0}:{1}", p.Key, p.Value));
+						//	}
+						//}
 
 					}
 				);
 
+			}
 			//}
 
 

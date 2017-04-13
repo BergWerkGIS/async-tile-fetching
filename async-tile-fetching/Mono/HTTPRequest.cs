@@ -1,24 +1,28 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright file="HTTPRequest.cs" company="Mapbox">
 //     Copyright (c) 2016 Mapbox. All rights reserved.
-//     Based on http://wiki.unity3d.com/index.php/WebAsync
+//     Based on http://stackoverflow.com/a/12606963 and http://wiki.unity3d.com/index.php/WebAsync
 // </copyright>
 //-----------------------------------------------------------------------
 
-namespace Mapbox.Mono {
+namespace Mapbox.Platform {
 
 
 	using System;
-	using System.Collections;
 	using System.Net;
 	using System.Net.Cache;
-	using System.Threading;
-	using Mapbox.Platform;
 	using System.IO;
 	using System.Collections.Generic;
+	using System.Threading;
+	using System.Windows.Threading;
 
-	internal sealed class HTTPRequest_v2 : IAsyncRequest {
+	internal sealed class HTTPRequest : IAsyncRequest {
 
+
+		//http://stackoverflow.com/a/33391290
+		//	http://answers.unity3d.com/questions/792342/how-to-validate-ssl-certificates-when-using-httpwe.html
+		//	https://alexandrebrisebois.wordpress.com/2013/03/24/why-are-webrequests-throttled-i-want-more-throughput/
+		//	http://stackoverflow.com/a/17796684
 
 		public bool IsCompleted = false;
 
@@ -29,6 +33,8 @@ namespace Mapbox.Mono {
 		private RequestCachePolicy _cachePolicy = new RequestCachePolicy(RequestCacheLevel.CacheIfAvailable);
 		private int _timeOut;
 		private static bool _responseCallbackCompleted = false;
+		private Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
+
 
 
 		/// <summary>
@@ -37,7 +43,7 @@ namespace Mapbox.Mono {
 		/// <param name="url"></param>
 		/// <param name="callback"></param>
 		/// <param name="timeOut">seconds</param>
-		public HTTPRequest_v2(string url, Action<Response> callback, int timeOut = 10) {
+		public HTTPRequest(string url, Action<Response> callback, int timeOut = 10) {
 
 			_callback = callback;
 			_timeOut = timeOut;
@@ -69,6 +75,14 @@ namespace Mapbox.Mono {
 						HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(r);
 						gotResponse(response, null);
 					}
+					// EndGetResponse() throws on on some status codes, try to get response anyway (and status codes)
+					catch (WebException wex) {
+						HttpWebResponse hwr = wex.Response as HttpWebResponse;
+						if (null == hwr) {
+							throw;
+						}
+						gotResponse(hwr, wex);
+					}
 					catch (Exception ex) {
 						gotResponse(null, ex);
 					}
@@ -76,6 +90,7 @@ namespace Mapbox.Mono {
 			, request);
 			};
 
+			// BeginInvoke runs on a thread of the thread pool (!= main thread)
 			actionWrapper.BeginInvoke(new AsyncCallback((iar) => {
 				var action = (Action)iar.AsyncState;
 				action.EndInvoke(iar);
@@ -120,6 +135,8 @@ namespace Mapbox.Mono {
 								DateTime beginningOfTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
 								response.XRateLimitReset = beginningOfTime.AddSeconds(unixTimestamp).ToLocalTime();
 							}
+						} else if (key.Equals("Content-Type", StringComparison.InvariantCultureIgnoreCase)) {
+							response.ContentType = val;
 						}
 					}
 				}
@@ -127,8 +144,13 @@ namespace Mapbox.Mono {
 				if (apiResponse.StatusCode != HttpStatusCode.OK) {
 					response.AddException(new Exception(string.Format("{0}: {1}", apiResponse.StatusCode, apiResponse.StatusDescription)));
 				}
+				int statusCode = (int)apiResponse.StatusCode;
+				response.StatusCode = statusCode;
+				if (429 == statusCode) {
+					response.AddException(new Exception("Rate limit hit"));
+				}
 
-				if (null == response.Exceptions || response.Exceptions.Count < 1) {
+				if (null != apiResponse) {
 					using (Stream responseStream = apiResponse.GetResponseStream()) {
 						byte[] buffer = new byte[0x1000];
 						int bytesRead;
@@ -142,8 +164,16 @@ namespace Mapbox.Mono {
 				}
 			}
 
-			_callback(response);
-			IsCompleted = true;
+			if (_dispatcher.CheckAccess()) {
+				_callback(response);
+				IsCompleted = true;
+			} else {
+				//object retval = _dispatcher.Invoke(new Action(() => _callback(response)));
+				_dispatcher.BeginInvoke(new Action(() => {
+					_callback(response);
+					IsCompleted = true;
+				}));
+			}
 		}
 
 		public void Cancel() {

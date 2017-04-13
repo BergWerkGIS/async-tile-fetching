@@ -14,6 +14,23 @@ namespace Mapbox.Platform {
 	/// <summary> A response from a <see cref="IFileSource" /> request. </summary>
 	public struct Response {
 
+
+		public bool RateLimitHit {
+			get { return StatusCode.HasValue ? 429 == StatusCode.Value : false; }
+		}
+
+		public bool HasError {
+			get {
+				return _exceptions == null ? false : _exceptions.Count > 0;
+			}
+		}
+
+		public int? StatusCode;
+
+
+		public string ContentType;
+
+
 		/// <summary>Length of rate-limiting interval in seconds. https://www.mapbox.com/api-documentation/#rate-limits </summary>
 		public int? XRateLimitInterval;
 

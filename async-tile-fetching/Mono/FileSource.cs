@@ -4,13 +4,15 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-namespace Mapbox.Mono {
+namespace Mapbox.Platform {
 
 
 	using System;
 	using System.Collections.Generic;
+	using System.Net;
+	using System.Net.Security;
+	using System.Security.Cryptography.X509Certificates;
 	using System.Threading;
-	using Mapbox.Platform;
 
 
 	/// <summary>
@@ -25,7 +27,7 @@ namespace Mapbox.Mono {
 	public sealed class FileSource : IFileSource {
 
 
-		private readonly List<HTTPRequest_v2> _requests = new List<HTTPRequest_v2>();
+		private readonly List<HTTPRequest> _requests = new List<HTTPRequest>();
 		private readonly string _accessToken = Environment.GetEnvironmentVariable("MAPBOX_ACCESS_TOKEN");
 
 
@@ -50,8 +52,13 @@ namespace Mapbox.Mono {
 				url += "?access_token=" + _accessToken;
 			}
 
+			// TODO:
+			// * add queue for requests
+			// * evaluate rate limits (headers and status code)
+			// * throttle requests accordingly
+
 			//var request = new HTTPRequest_v2(url, proxyResponse);
-			var request = new HTTPRequest_v2(url, callback);
+			var request = new HTTPRequest(url, callback);
 			_requests.Add(request);
 
 			return request;
@@ -74,7 +81,7 @@ namespace Mapbox.Mono {
 				// Reverse for safely removing while iterating.
 				for (int i = _requests.Count - 1; i >= 0; i--) {
 					while (!_requests[i].IsCompleted) {
-						Thread.Sleep(50);
+						Thread.Sleep(10);
 					}
 					_requests.RemoveAt(i);
 				}
@@ -84,11 +91,16 @@ namespace Mapbox.Mono {
 				}
 
 #if !WINDOWS_UWP
-				Thread.Sleep(10);
+				Thread.Sleep(50);
 #else
-				System.Threading.Tasks.Task.Delay(5).Wait();
+				System.Threading.Tasks.Task.Delay(50).Wait();
 #endif
 			}
 		}
+
+
+
+
+
 	}
 }
