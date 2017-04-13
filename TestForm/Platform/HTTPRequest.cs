@@ -45,6 +45,8 @@ namespace Mapbox.Platform {
 		/// <param name="timeOut">seconds</param>
 		public HTTPRequest(string url, Action<Response> callback, int timeOut = 10) {
 
+			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest constructor, thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+
 			_callback = callback;
 			_timeOut = timeOut;
 
@@ -56,10 +58,12 @@ namespace Mapbox.Platform {
 			//_hwr.Timeout = timeOut * 1000; doesn't work in async calls, see below
 
 			GetResponseAsync(_hwr, EvaluateResponse);
+			//GetResponseAsync(_hwr);
 		}
 
 
 		private void GetResponseAsync(HttpWebRequest request, Action<HttpWebResponse, Exception> gotResponse) {
+			//private void GetResponseAsync(HttpWebRequest request) {
 
 			// create an additional action wrapper, because of:
 			// https://msdn.microsoft.com/en-us/library/system.net.httpwebrequest.begingetresponse.aspx
@@ -69,11 +73,20 @@ namespace Mapbox.Platform {
 			// take considerable time(up to several minutes depending on network settings) to complete the
 			// initial synchronous setup tasks before an exception for an error is thrown or the method succeeds.
 
+			SynchronizationContext ctxt = SynchronizationContext.Current;
+
 			Action actionWrapper = () => {
 				request.BeginGetResponse((r) => {
 					try { // there's a try/catch here because execution path is different from invokation one, exception here may cause a crash
 						HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(r);
 						System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'gotResponse', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+						//ctxt.Post(delegate { gotResponse(response, null); }, null);
+						//ctxt.Send(delegate { gotResponse(response, null); }, null);
+						//ctxt.Post(EvaluateResponse, response);
+						//ctxt.Post(delegate { EvaluateResponse(response, null); }, null);
+						//ctxt.Send(delegate { EvaluateResponse(response, null); }, null);
+						//ctxt.Post(_ => gotResponse(response, null), ctxt);
+
 						gotResponse(response, null);
 					}
 					// EndGetResponse() throws on on some status codes, try to get response anyway (and status codes)
@@ -91,16 +104,23 @@ namespace Mapbox.Platform {
 			, request);
 			};
 
-			// BeginInvoke runs on a thread of the thread pool (!= main thread)
+
+
+			// !!!!BeginInvoke runs on a thread of the thread pool (!= main thread)!!!!
+			// TODO: how to influence threadpool: nr of threads etc.
 			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 			actionWrapper.BeginInvoke(new AsyncCallback((iASyncResult) => {
 				System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest within 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 				var action = (Action)iASyncResult.AsyncState;
 				action.EndInvoke(iASyncResult);
+				System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest after 'EndInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 			})
 			, actionWrapper
 			);
+
+			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest past 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 		}
+
 
 
 		private void EvaluateResponse(HttpWebResponse apiResponse, Exception apiEx) {
@@ -180,6 +200,7 @@ namespace Mapbox.Platform {
 			//}
 
 
+			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before calling '_callback', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 			_callback(response);
 			IsCompleted = true;
 

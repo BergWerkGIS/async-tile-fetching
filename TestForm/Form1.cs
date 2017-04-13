@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using Mapbox.Platform;
+using System.Threading;
 
 namespace Mapbox.Platform {
 	public partial class Form1 : Form {
@@ -16,7 +17,7 @@ namespace Mapbox.Platform {
 
 		private void btnGo_Click(object sender, EventArgs e) {
 
-
+			SynchronizationContext sync = SynchronizationContext.Current;
 			lvInfo.Items.Clear();
 
 			int countReq = 0;
@@ -42,7 +43,9 @@ namespace Mapbox.Platform {
 							try {
 								if (lblRespCnt.InvokeRequired) {
 									//lblRespCnt.Invoke(new Action(() => { lblRespCnt.Text = countResp.ToString(); }));
-									Invoke((MethodInvoker)delegate { lblRespCnt.Text = countResp.ToString(); });
+									//Invoke((MethodInvoker)delegate { lblRespCnt.Text = countResp.ToString(); });
+									//sync.Send(delegate { lblRespCnt.Text = countResp.ToString(); }, null);
+									SynchronizationContext.Current.Send(delegate { lblRespCnt.Text = countResp.ToString(); }, null);
 								} else {
 									lblRespCnt.Text = countResp.ToString();
 								}
