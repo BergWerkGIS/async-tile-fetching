@@ -14,7 +14,7 @@ namespace Mapbox.Platform {
 	using System.IO;
 	using System.Collections.Generic;
 	using System.Threading;
-	using System.Windows.Threading;
+	//using System.Windows.Threading;
 
 	internal sealed class HTTPRequest : IAsyncRequest {
 
@@ -33,7 +33,7 @@ namespace Mapbox.Platform {
 		private RequestCachePolicy _cachePolicy = new RequestCachePolicy(RequestCacheLevel.CacheIfAvailable);
 		private int _timeOut;
 		private static bool _responseCallbackCompleted = false;
-		private Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
+		//private Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
 
 
 
@@ -73,6 +73,7 @@ namespace Mapbox.Platform {
 				request.BeginGetResponse((r) => {
 					try { // there's a try/catch here because execution path is different from invokation one, exception here may cause a crash
 						HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(r);
+						System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'gotResponse', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 						gotResponse(response, null);
 					}
 					// EndGetResponse() throws on on some status codes, try to get response anyway (and status codes)
@@ -91,9 +92,11 @@ namespace Mapbox.Platform {
 			};
 
 			// BeginInvoke runs on a thread of the thread pool (!= main thread)
-			actionWrapper.BeginInvoke(new AsyncCallback((iar) => {
-				var action = (Action)iar.AsyncState;
-				action.EndInvoke(iar);
+			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+			actionWrapper.BeginInvoke(new AsyncCallback((iASyncResult) => {
+				System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest within 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+				var action = (Action)iASyncResult.AsyncState;
+				action.EndInvoke(iASyncResult);
 			})
 			, actionWrapper
 			);
@@ -164,16 +167,22 @@ namespace Mapbox.Platform {
 				}
 			}
 
-			if (_dispatcher.CheckAccess()) {
-				_callback(response);
-				IsCompleted = true;
-			} else {
-				//object retval = _dispatcher.Invoke(new Action(() => _callback(response)));
-				_dispatcher.BeginInvoke(new Action(() => {
-					_callback(response);
-					IsCompleted = true;
-				}));
-			}
+
+			//if (_dispatcher.CheckAccess()) {
+			//	_callback(response);
+			//	IsCompleted = true;
+			//} else {
+			//	//object retval = _dispatcher.Invoke(new Action(() => _callback(response)));
+			//	_dispatcher.BeginInvoke(new Action(() => {
+			//		_callback(response);
+			//		IsCompleted = true;
+			//	}));
+			//}
+
+
+			_callback(response);
+			IsCompleted = true;
+
 		}
 
 		public void Cancel() {

@@ -80,10 +80,9 @@ namespace Mapbox.Platform {
 			while (true) {
 				// Reverse for safely removing while iterating.
 				for (int i = _requests.Count - 1; i >= 0; i--) {
-					while (!_requests[i].IsCompleted) {
-						Thread.Sleep(10);
+					if (_requests[i].IsCompleted) {
+						_requests.RemoveAt(i);
 					}
-					_requests.RemoveAt(i);
 				}
 
 				if (_requests.Count == 0) {
