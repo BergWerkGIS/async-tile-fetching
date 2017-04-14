@@ -65,6 +65,7 @@ namespace Mapbox.Platform {
 		}
 
 
+		// TODO: look at requests and implement throttling if needed
 		private void proxyResponse(Response response) {
 			if (response.XRateLimitInterval.HasValue) { XRateLimitInterval = response.XRateLimitInterval; }
 			if (response.XRateLimitLimit.HasValue) { XRateLimitLimit = response.XRateLimitLimit; }

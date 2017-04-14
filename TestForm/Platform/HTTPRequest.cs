@@ -21,11 +21,6 @@ namespace Mapbox.Platform {
 	internal sealed class HTTPRequest : IAsyncRequest {
 
 
-		//http://stackoverflow.com/a/33391290
-		//	http://answers.unity3d.com/questions/792342/how-to-validate-ssl-certificates-when-using-httpwe.html
-		//	https://alexandrebrisebois.wordpress.com/2013/03/24/why-are-webrequests-throttled-i-want-more-throughput/
-		//	http://stackoverflow.com/a/17796684
-
 		public bool IsCompleted = false;
 
 
@@ -34,10 +29,12 @@ namespace Mapbox.Platform {
 		//private RequestCachePolicy _cachePolicy = new RequestCachePolicy(RequestCacheLevel.NoCacheNoStore);
 		private RequestCachePolicy _cachePolicy = new RequestCachePolicy(RequestCacheLevel.CacheIfAvailable);
 		private int _timeOut;
-		private static bool _responseCallbackCompleted = false;
-		//private Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
-		private SynchronizationContext _sync = AsyncOperationManager.SynchronizationContext;
 
+		// DANG, this doesn't do anything under Unity
+		private SynchronizationContext _sync = AsyncOperationManager.SynchronizationContext;
+		// and SynchronizationContext.Current is NULL :-(
+		// maybe try out something like this:
+		// https://forum.unity3d.com/threads/synchronizationcontext-for-main-thread.433876/#post-2832944
 
 
 		/// <summary>
@@ -48,11 +45,7 @@ namespace Mapbox.Platform {
 		/// <param name="timeOut">seconds</param>
 		public HTTPRequest(string url, Action<Response> callback, int timeOut = 10) {
 
-			//_sync = SynchronizationContext.Current;
 			_sync = AsyncOperationManager.SynchronizationContext;
-
-			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest constructor, thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-
 			_callback = callback;
 			_timeOut = timeOut;
 
@@ -63,9 +56,7 @@ namespace Mapbox.Platform {
 			_hwr.CachePolicy = _cachePolicy;
 			//_hwr.Timeout = timeOut * 1000; doesn't work in async calls, see below
 
-			GetResponseAsync(_hwr, EvaluateResponse);
-			//GetResponseAsync(_hwr, null);
-			//GetResponseAsync(_hwr);
+			getResponseAsync(_hwr, EvaluateResponse);
 		}
 
 		#region oldversion
@@ -131,58 +122,53 @@ namespace Mapbox.Platform {
 
 		#endregion
 
-		private void GetResponseAsync(HttpWebRequest request, Action<HttpWebResponse, Exception> gotResponse) {
+		private void getResponseAsync(HttpWebRequest request, Action<HttpWebResponse, Exception> gotResponse) {
 
-			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest 'GetResponseAsync', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+			// create an additional action wrapper, because of:
+			// https://msdn.microsoft.com/en-us/library/system.net.httpwebrequest.begingetresponse.aspx
+			// The BeginGetResponse method requires some synchronous setup tasks to complete (DNS resolution,
+			//proxy detection, and TCP socket connection, for example) before this method becomes asynchronous.
+			// As a result, this method should never be called on a user interface (UI) thread because it might
+			// take considerable time(up to several minutes depending on network settings) to complete the
+			// initial synchronous setup tasks before an exception for an error is thrown or the method succeeds.
 
-
-			request.BeginGetResponse((asycnResult) => {
-				try { // there's a try/catch here because execution path is different from invokation one, exception here may cause a crash
-					HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(asycnResult);
-					System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'gotResponse', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-					//gotResponse(response, null);
-					//SynchronizationContext.SetSynchronizationContext(sync);
-					gotResponse(response, null);
-					//sync.Post(delegate {
-					//	gotResponse(response, null);
-					//}, null);
-					//_sync.Post(s=>EvaluateResponse(s), response);
-					//SynchronizationContext ctxt = asycnResult.AsyncState as SynchronizationContext;
-					//ctxt.Post(EvaluateResponse, response);
-					//ctxt.Post(delegate { _callback(new Response()); }, null);
-
-					//Action forwardDelegate = () => sync.Send((state) => gotResponse(response, null), null);
-					//IAsyncResult result = forwardDelegate.BeginInvoke(null, null);
-					//result.AsyncWaitHandle.WaitOne();
-				}
-				// EndGetResponse() throws on on some status codes, try to get response anyway (and status codes)
-				catch (WebException wex) {
-					HttpWebResponse hwr = wex.Response as HttpWebResponse;
-					if (null == hwr) {
-						throw;
+			Action actionWrapper = () => {
+				// BeginInvoke runs on a thread of the thread pool (!= main/UI thread)
+				// that's why we need SynchronizationContext when 
+				// TODO: how to influence threadpool: nr of threads etc.
+				request.BeginGetResponse((asycnResult) => {
+					try { // there's a try/catch here because execution path is different from invokation one, exception here may cause a crash
+						HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(asycnResult);
+						gotResponse(response, null);
 					}
-					gotResponse(hwr, wex);
+					// EndGetResponse() throws on on some status codes, try to get response anyway (and status codes)
+					catch (WebException wex) {
+						HttpWebResponse hwr = wex.Response as HttpWebResponse;
+						if (null == hwr) {
+							throw;
+						}
+						gotResponse(hwr, wex);
+					}
+					catch (Exception ex) {
+						gotResponse(null, ex);
+					}
 				}
-				catch (Exception ex) {
-					gotResponse(null, ex);
-				}
-			}
-			, _sync);
+				, null);
+			};
 
-
-			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest past 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+			actionWrapper.BeginInvoke(new AsyncCallback((iAsyncResult) => {
+				var action = (Action)iAsyncResult.AsyncState;
+				action.EndInvoke(iAsyncResult);
+			})
+			, actionWrapper);
 		}
 
 
 
-
 		private void EvaluateResponse(HttpWebResponse apiResponse, Exception apiEx) {
-		//private void EvaluateResponse(object state) {
-			//HttpWebResponse apiResponse = state as HttpWebResponse;
-			//Exception apiEx = null;
 
 			var response = new Response();
-			//response.Exceptions = taskInfo.Exceptions.Count > 0 ? taskInfo.Exceptions : null;
+
 			if (null != apiEx) {
 				response.AddException(apiEx);
 			}
@@ -243,25 +229,12 @@ namespace Mapbox.Platform {
 				}
 			}
 
-
-			//if (_dispatcher.CheckAccess()) {
-			//	_callback(response);
-			//	IsCompleted = true;
-			//} else {
-			//	//object retval = _dispatcher.Invoke(new Action(() => _callback(response)));
-			//	_dispatcher.BeginInvoke(new Action(() => {
-			//		_callback(response);
-			//		IsCompleted = true;
-			//	}));
-			//}
-
-
-			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before calling '_callback', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-			//_callback(response);
+			// post (async) callback on the main/UI thread
 			_sync.Post(delegate { _callback(response); }, null);
 			IsCompleted = true;
 
 		}
+
 
 		public void Cancel() {
 
