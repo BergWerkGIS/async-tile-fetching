@@ -34,6 +34,9 @@
 			this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.lblReqCnt = new System.Windows.Forms.Label();
 			this.lblRespCnt = new System.Windows.Forms.Label();
+			this.lblTodoCnt = new System.Windows.Forms.Label();
+			this.btnGo2 = new System.Windows.Forms.Button();
+			this.btnGo3 = new System.Windows.Forms.Button();
 			((System.ComponentModel.ISupportInitialize)(this.outerLoopStart)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.outerLoopStop)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.tileXstart)).BeginInit();
@@ -46,6 +49,7 @@
 			this.outerLoopStart.Name = "outerLoopStart";
 			this.outerLoopStart.Size = new System.Drawing.Size(120, 20);
 			this.outerLoopStart.TabIndex = 0;
+			this.outerLoopStart.ValueChanged += new System.EventHandler(this.outerLoopStart_ValueChanged);
 			// 
 			// outerLoopStop
 			// 
@@ -58,6 +62,7 @@
             0,
             0,
             0});
+			this.outerLoopStop.ValueChanged += new System.EventHandler(this.outerLoopStop_ValueChanged);
 			// 
 			// label1
 			// 
@@ -93,6 +98,7 @@
             0,
             0,
             0});
+			this.tileXstart.ValueChanged += new System.EventHandler(this.tileXstart_ValueChanged);
 			// 
 			// tileXstop
 			// 
@@ -110,6 +116,7 @@
             0,
             0,
             0});
+			this.tileXstop.ValueChanged += new System.EventHandler(this.tileXstop_ValueChanged);
 			// 
 			// btnGo
 			// 
@@ -157,11 +164,42 @@
 			this.lblRespCnt.TabIndex = 9;
 			this.lblRespCnt.Text = "label4";
 			// 
+			// lblTodoCnt
+			// 
+			this.lblTodoCnt.Location = new System.Drawing.Point(437, 64);
+			this.lblTodoCnt.Name = "lblTodoCnt";
+			this.lblTodoCnt.Size = new System.Drawing.Size(100, 23);
+			this.lblTodoCnt.TabIndex = 10;
+			this.lblTodoCnt.Text = "label3";
+			// 
+			// btnGo2
+			// 
+			this.btnGo2.Location = new System.Drawing.Point(534, 76);
+			this.btnGo2.Name = "btnGo2";
+			this.btnGo2.Size = new System.Drawing.Size(75, 23);
+			this.btnGo2.TabIndex = 11;
+			this.btnGo2.Text = "go 2";
+			this.btnGo2.UseVisualStyleBackColor = true;
+			this.btnGo2.Click += new System.EventHandler(this.btnGo2_Click);
+			// 
+			// btnGo3
+			// 
+			this.btnGo3.Location = new System.Drawing.Point(615, 76);
+			this.btnGo3.Name = "btnGo3";
+			this.btnGo3.Size = new System.Drawing.Size(75, 23);
+			this.btnGo3.TabIndex = 12;
+			this.btnGo3.Text = "go 3";
+			this.btnGo3.UseVisualStyleBackColor = true;
+			this.btnGo3.Click += new System.EventHandler(this.btnGo3_Click);
+			// 
 			// Form1
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(752, 558);
+			this.Controls.Add(this.btnGo3);
+			this.Controls.Add(this.btnGo2);
+			this.Controls.Add(this.lblTodoCnt);
 			this.Controls.Add(this.lblRespCnt);
 			this.Controls.Add(this.lblReqCnt);
 			this.Controls.Add(this.lvInfo);
@@ -197,6 +235,9 @@
 		private System.Windows.Forms.ColumnHeader columnHeader1;
 		private System.Windows.Forms.Label lblReqCnt;
 		private System.Windows.Forms.Label lblRespCnt;
+		private System.Windows.Forms.Label lblTodoCnt;
+		private System.Windows.Forms.Button btnGo2;
+		private System.Windows.Forms.Button btnGo3;
 	}
 }
 

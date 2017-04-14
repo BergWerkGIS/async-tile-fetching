@@ -52,6 +52,7 @@
     </Compile>
     <Compile Include="Platform\FileSource.cs" />
     <Compile Include="Platform\HTTPRequest.cs" />
+    <Compile Include="Platform\HTTPRequestSimple.cs" />
     <Compile Include="Platform\IAsyncRequest.cs" />
     <Compile Include="Platform\IFileSource.cs" />
     <Compile Include="Platform\IResource.cs" />

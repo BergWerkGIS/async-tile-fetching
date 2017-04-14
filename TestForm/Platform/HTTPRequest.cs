@@ -14,6 +14,8 @@ namespace Mapbox.Platform {
 	using System.IO;
 	using System.Collections.Generic;
 	using System.Threading;
+	using System.ComponentModel;
+
 	//using System.Windows.Threading;
 
 	internal sealed class HTTPRequest : IAsyncRequest {
@@ -34,6 +36,7 @@ namespace Mapbox.Platform {
 		private int _timeOut;
 		private static bool _responseCallbackCompleted = false;
 		//private Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
+		private SynchronizationContext _sync = AsyncOperationManager.SynchronizationContext;
 
 
 
@@ -44,6 +47,9 @@ namespace Mapbox.Platform {
 		/// <param name="callback"></param>
 		/// <param name="timeOut">seconds</param>
 		public HTTPRequest(string url, Action<Response> callback, int timeOut = 10) {
+
+			//_sync = SynchronizationContext.Current;
+			_sync = AsyncOperationManager.SynchronizationContext;
 
 			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest constructor, thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 
@@ -58,72 +64,122 @@ namespace Mapbox.Platform {
 			//_hwr.Timeout = timeOut * 1000; doesn't work in async calls, see below
 
 			GetResponseAsync(_hwr, EvaluateResponse);
+			//GetResponseAsync(_hwr, null);
 			//GetResponseAsync(_hwr);
 		}
 
+		#region oldversion
+
+		//private void GetResponseAsync(HttpWebRequest request, Action<HttpWebResponse, Exception> gotResponse) {
+		//	//private void GetResponseAsync(HttpWebRequest request) {
+
+		//	// create an additional action wrapper, because of:
+		//	// https://msdn.microsoft.com/en-us/library/system.net.httpwebrequest.begingetresponse.aspx
+		//	// The BeginGetResponse method requires some synchronous setup tasks to complete (DNS resolution,
+		//	//proxy detection, and TCP socket connection, for example) before this method becomes asynchronous.
+		//	// As a result, this method should never be called on a user interface (UI) thread because it might
+		//	// take considerable time(up to several minutes depending on network settings) to complete the
+		//	// initial synchronous setup tasks before an exception for an error is thrown or the method succeeds.
+
+		//	Action actionWrapper = () => {
+		//		request.BeginGetResponse((r) => {
+		//			try { // there's a try/catch here because execution path is different from invokation one, exception here may cause a crash
+		//				HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(r);
+		//				System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'gotResponse', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+		//				gotResponse(response, null);
+		//			}
+		//			// EndGetResponse() throws on on some status codes, try to get response anyway (and status codes)
+		//			catch (WebException wex) {
+		//				HttpWebResponse hwr = wex.Response as HttpWebResponse;
+		//				if (null == hwr) {
+		//					throw;
+		//				}
+		//				gotResponse(hwr, wex);
+		//			}
+		//			catch (Exception ex) {
+		//				gotResponse(null, ex);
+		//			}
+		//		}
+		//	, request);
+		//	};
+
+		//	//http://www.cshandler.com/2011/07/delegate-and-async-programming-part-ii.html
+		//	//http://www.yoda.arachsys.com/csharp/threads/printable.shtml
+		//	//https://msdn.microsoft.com/en-us/library/2e08f6yc(v=vs.110).aspx
+		//	//http://www.c-sharpcorner.com/UploadFile/vendettamit/delegate-and-async-programming-C-Sharp-asynccallback-and-object-state/
+		//	//http://xcalibursystems.com/2011/10/c-how-to-get-a-return-value-from-an-action/
+		//	//https://stackoverflow.com/questions/8099631/how-to-return-value-from-action
+		//	//http://blog.aggregatedintelligence.com/2010/06/c-asynchronous-programming-using.html
+		//	//http://csharpindepth.com/Articles/Chapter2/Events.aspx?printable=true
+
+
+		//	// !!!!BeginInvoke runs on a thread of the thread pool (!= main thread)!!!!
+		//	// TODO: how to influence threadpool: nr of threads etc.
+		//	System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+		//	actionWrapper.BeginInvoke(new AsyncCallback((iASyncResult) => {
+		//		System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest within 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+		//		var action = (Action)iASyncResult.AsyncState;
+		//		action.EndInvoke(iASyncResult);
+		//		System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest after 'EndInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+		//	})
+		//	, actionWrapper
+		//	);
+
+		//	System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest past 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+		//}
+
+
+		#endregion
 
 		private void GetResponseAsync(HttpWebRequest request, Action<HttpWebResponse, Exception> gotResponse) {
-			//private void GetResponseAsync(HttpWebRequest request) {
 
-			// create an additional action wrapper, because of:
-			// https://msdn.microsoft.com/en-us/library/system.net.httpwebrequest.begingetresponse.aspx
-			// The BeginGetResponse method requires some synchronous setup tasks to complete (DNS resolution,
-			//proxy detection, and TCP socket connection, for example) before this method becomes asynchronous.
-			// As a result, this method should never be called on a user interface (UI) thread because it might
-			// take considerable time(up to several minutes depending on network settings) to complete the
-			// initial synchronous setup tasks before an exception for an error is thrown or the method succeeds.
+			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest 'GetResponseAsync', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 
-			SynchronizationContext ctxt = SynchronizationContext.Current;
 
-			Action actionWrapper = () => {
-				request.BeginGetResponse((r) => {
-					try { // there's a try/catch here because execution path is different from invokation one, exception here may cause a crash
-						HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(r);
-						System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'gotResponse', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-						//ctxt.Post(delegate { gotResponse(response, null); }, null);
-						//ctxt.Send(delegate { gotResponse(response, null); }, null);
-						//ctxt.Post(EvaluateResponse, response);
-						//ctxt.Post(delegate { EvaluateResponse(response, null); }, null);
-						//ctxt.Send(delegate { EvaluateResponse(response, null); }, null);
-						//ctxt.Post(_ => gotResponse(response, null), ctxt);
+			request.BeginGetResponse((asycnResult) => {
+				try { // there's a try/catch here because execution path is different from invokation one, exception here may cause a crash
+					HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(asycnResult);
+					System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'gotResponse', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+					//gotResponse(response, null);
+					//SynchronizationContext.SetSynchronizationContext(sync);
+					gotResponse(response, null);
+					//sync.Post(delegate {
+					//	gotResponse(response, null);
+					//}, null);
+					//_sync.Post(s=>EvaluateResponse(s), response);
+					//SynchronizationContext ctxt = asycnResult.AsyncState as SynchronizationContext;
+					//ctxt.Post(EvaluateResponse, response);
+					//ctxt.Post(delegate { _callback(new Response()); }, null);
 
-						gotResponse(response, null);
-					}
-					// EndGetResponse() throws on on some status codes, try to get response anyway (and status codes)
-					catch (WebException wex) {
-						HttpWebResponse hwr = wex.Response as HttpWebResponse;
-						if (null == hwr) {
-							throw;
-						}
-						gotResponse(hwr, wex);
-					}
-					catch (Exception ex) {
-						gotResponse(null, ex);
-					}
+					//Action forwardDelegate = () => sync.Send((state) => gotResponse(response, null), null);
+					//IAsyncResult result = forwardDelegate.BeginInvoke(null, null);
+					//result.AsyncWaitHandle.WaitOne();
 				}
-			, request);
-			};
+				// EndGetResponse() throws on on some status codes, try to get response anyway (and status codes)
+				catch (WebException wex) {
+					HttpWebResponse hwr = wex.Response as HttpWebResponse;
+					if (null == hwr) {
+						throw;
+					}
+					gotResponse(hwr, wex);
+				}
+				catch (Exception ex) {
+					gotResponse(null, ex);
+				}
+			}
+			, _sync);
 
-
-
-			// !!!!BeginInvoke runs on a thread of the thread pool (!= main thread)!!!!
-			// TODO: how to influence threadpool: nr of threads etc.
-			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-			actionWrapper.BeginInvoke(new AsyncCallback((iASyncResult) => {
-				System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest within 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-				var action = (Action)iASyncResult.AsyncState;
-				action.EndInvoke(iASyncResult);
-				System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest after 'EndInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-			})
-			, actionWrapper
-			);
 
 			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest past 'BeginInvoke', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 		}
 
 
 
+
 		private void EvaluateResponse(HttpWebResponse apiResponse, Exception apiEx) {
+		//private void EvaluateResponse(object state) {
+			//HttpWebResponse apiResponse = state as HttpWebResponse;
+			//Exception apiEx = null;
 
 			var response = new Response();
 			//response.Exceptions = taskInfo.Exceptions.Count > 0 ? taskInfo.Exceptions : null;
@@ -201,7 +257,8 @@ namespace Mapbox.Platform {
 
 
 			System.Diagnostics.Debug.WriteLine(string.Format("HTTPRequest before calling '_callback', thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-			_callback(response);
+			//_callback(response);
+			_sync.Post(delegate { _callback(response); }, null);
 			IsCompleted = true;
 
 		}
