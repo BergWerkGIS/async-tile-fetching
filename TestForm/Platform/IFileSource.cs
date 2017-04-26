@@ -4,11 +4,9 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-namespace Mapbox.Platform {
-
-
+namespace Mapbox.Platform
+{
 	using System;
-
 
 	/// <summary>
 	///     A data source abstraction. Used by classes that need to fetch data but really
@@ -16,9 +14,8 @@ namespace Mapbox.Platform {
 	///     IFileSource could fetch the data from the network, disk cache or even generate
 	///     the data at runtime.
 	/// </summary>
-	public interface IFileSource {
-
-
+	public interface IFileSource
+	{
 		/// <summary> Performs a request asynchronously. </summary>
 		/// <param name="uri"> The resource description in the URI format. </param>
 		/// <param name="callback"> Callback to be called after the request is completed. </param>

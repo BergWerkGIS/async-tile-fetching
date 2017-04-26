@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using Mapbox.Platform;
+using Mapbox.VectorTile;
 using System.Threading;
 using System.Net;
 
@@ -31,6 +32,8 @@ namespace Mapbox.Platform {
 
 			object locker = new object();
 
+			DateTime dtStart = DateTime.Now;
+
 			System.Diagnostics.Debug.WriteLine(string.Format(" ============> WinForm, thread id:{0} <==============", System.Threading.Thread.CurrentThread.ManagedThreadId));
 			for (int i = (int)outerLoopStart.Value; i < (int)outerLoopStop.Value; i++) {
 				for (int x = (int)tileXstart.Value; x < tileXstop.Value; x++) {
@@ -43,31 +46,43 @@ namespace Mapbox.Platform {
 						, (Response r) => {
 							System.Diagnostics.Debug.WriteLine(string.Format("winform response, thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
 							//lock (locker) {
-								countResp++;
-								try {
-									if (lblRespCnt.InvokeRequired) {
-										System.Diagnostics.Debug.WriteLine(string.Format("winform lblRespCnt.InvokeRequired, thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-										//lblRespCnt.Invoke(new Action(() => { lblRespCnt.Text = countResp.ToString(); }));
-										//Invoke((MethodInvoker)delegate { lblRespCnt.Text = countResp.ToString(); });
-										//sync.Send(delegate { lblRespCnt.Text = countResp.ToString(); }, null);
-										//sync.Send(delegate { lblRespCnt.Text = countResp.ToString(); }, null);
-										sync.Post(delegate { lblRespCnt.Text = countResp.ToString(); }, null);
-									} else {
-										System.Diagnostics.Debug.WriteLine(string.Format("winform !lblRespCnt.InvokeRequired, thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
-										lblRespCnt.Text = countResp.ToString();
-									}
+							countResp++;
+							if (countResp == 1) {
+								foreach (var hdr in r.Headers) {
+									addItem(string.Format("{0}: {1}", hdr.Key, hdr.Value));
 								}
-								catch (Exception ex) {
-									addItem(ex.ToString());
+							}
+							if (0 == countResp % 500) {
+								Application.DoEvents();
+							}
+							try {
+								if (lblRespCnt.InvokeRequired) {
+									System.Diagnostics.Debug.WriteLine(string.Format("winform lblRespCnt.InvokeRequired, thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+									//lblRespCnt.Invoke(new Action(() => { lblRespCnt.Text = countResp.ToString(); }));
+									//Invoke((MethodInvoker)delegate { lblRespCnt.Text = countResp.ToString(); });
+									//sync.Send(delegate { lblRespCnt.Text = countResp.ToString(); }, null);
+									//sync.Send(delegate { lblRespCnt.Text = countResp.ToString(); }, null);
+									sync.Post(delegate { lblRespCnt.Text = countResp.ToString(); }, null);
+								} else {
+									System.Diagnostics.Debug.WriteLine(string.Format("winform !lblRespCnt.InvokeRequired, thread id:{0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+									lblRespCnt.Text = countResp.ToString();
 								}
+							}
+							catch (Exception ex) {
+								addItem(ex.ToString());
+							}
 							//}
 							if (r.RateLimitHit) {
 								addItem(string.Format("{3} statuscode:{4} rate limit hit:{5} --- LimitInterval:{0} LimitLimit:{1} LimitReset:{2}", r.XRateLimitInterval, r.XRateLimitLimit, r.XRateLimitReset, x, r.StatusCode, r.RateLimitHit));
 							}
 							if (r.StatusCode != 200) {
-								addItem(Encoding.UTF8.GetString(r.Data));
+								if (null != r.Data && r.Data.Length > 0) {
+									addItem(Encoding.UTF8.GetString(r.Data));
+								} else {
+									addItem(string.Format("StatusCode: {0} - NO body", r.StatusCode));
+								}
 							}
-							if (null != r.Exceptions && r.Exceptions.Count > 0) {
+							if (r.HasError) {
 								addItem("");
 								foreach (var ex in r.Exceptions) {
 									addItem(ex.ToString());
@@ -76,17 +91,22 @@ namespace Mapbox.Platform {
 								return;
 							}
 
-							//VectorTile vt = new VectorTile(r.Data);
-							//Console.WriteLine(string.Join(", ", vt.LayerNames().ToArray()));
-							//VectorTileLayer roads= vt.GetLayer("road");
-							//int featCnt = roads.FeatureCount();
-							//for (int i = 0; i < featCnt; i++) {
-							//	VectorTileFeature feat = roads.GetFeature(i);
-							//	foreach (var p in feat.GetProperties()) {
-							//		Console.WriteLine(string.Format("{0}:{1}", p.Key, p.Value));
-							//	}
-							//}
-
+							if (IDC_chkDecodeVTs.Checked) {
+								try {
+									VectorTile.VectorTile vt = new VectorTile.VectorTile(r.Data);
+									foreach (var lyrName in vt.LayerNames()) {
+										VectorTileLayer lyr = vt.GetLayer(lyrName);
+										for (int j = 0; j < lyr.FeatureCount(); j++) {
+											VectorTileFeature feat = lyr.GetFeature(j);
+											feat.GetProperties();
+											feat.Geometry<int>();
+										}
+									}
+								}
+								catch (Exception ex) {
+									addItem(ex.ToString());
+								}
+							}
 						}
 					);
 
@@ -98,16 +118,23 @@ namespace Mapbox.Platform {
 
 
 			addItem("waiting ...");
+			Application.DoEvents();
 			//while (!request.IsCompleted) {  }
 			fs.WaitForAllRequests();
-			addItem(string.Format("finished! {0}", countResp));
-
+			DateTime dtFinished = DateTime.Now;
+			addItem(string.Format("finished! requests:{0} responses:{1}", countReq, countResp));
+			addItem(string.Format(
+				"{0} -> {1}, elapsed {2}s"
+				, dtStart.ToString("HH:mm:ss")
+				, dtFinished.ToString("HH:mm:ss")
+				, dtFinished.Subtract(dtStart).TotalSeconds
+			));
 		}
 
 
 
 		private void addItem(string msg) {
-			msg = string.Format("{0}: {1}", DateTime.Now.ToString("hh:mm:ss:.fff"), msg);
+			msg = string.Format("{0}: {1}", DateTime.Now.ToString("HH:mm:ss:.fff"), msg);
 			ListViewItem lvi = new ListViewItem(msg);
 			lvInfo.Items.Add(lvi);
 		}

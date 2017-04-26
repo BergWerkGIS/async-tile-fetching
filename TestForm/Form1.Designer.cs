@@ -37,6 +37,7 @@
 			this.lblTodoCnt = new System.Windows.Forms.Label();
 			this.btnGo2 = new System.Windows.Forms.Button();
 			this.btnGo3 = new System.Windows.Forms.Button();
+			this.IDC_chkDecodeVTs = new System.Windows.Forms.CheckBox();
 			((System.ComponentModel.ISupportInitialize)(this.outerLoopStart)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.outerLoopStop)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.tileXstart)).BeginInit();
@@ -154,7 +155,7 @@
 			this.lblReqCnt.Name = "lblReqCnt";
 			this.lblReqCnt.Size = new System.Drawing.Size(100, 18);
 			this.lblReqCnt.TabIndex = 8;
-			this.lblReqCnt.Text = "label3";
+			this.lblReqCnt.Text = "request count";
 			// 
 			// lblRespCnt
 			// 
@@ -162,7 +163,7 @@
 			this.lblRespCnt.Name = "lblRespCnt";
 			this.lblRespCnt.Size = new System.Drawing.Size(100, 18);
 			this.lblRespCnt.TabIndex = 9;
-			this.lblRespCnt.Text = "label4";
+			this.lblRespCnt.Text = "response count";
 			// 
 			// lblTodoCnt
 			// 
@@ -170,7 +171,7 @@
 			this.lblTodoCnt.Name = "lblTodoCnt";
 			this.lblTodoCnt.Size = new System.Drawing.Size(100, 23);
 			this.lblTodoCnt.TabIndex = 10;
-			this.lblTodoCnt.Text = "label3";
+			this.lblTodoCnt.Text = "total tile count";
 			// 
 			// btnGo2
 			// 
@@ -192,11 +193,22 @@
 			this.btnGo3.UseVisualStyleBackColor = true;
 			this.btnGo3.Click += new System.EventHandler(this.btnGo3_Click);
 			// 
+			// IDC_chkDecodeVTs
+			// 
+			this.IDC_chkDecodeVTs.AutoSize = true;
+			this.IDC_chkDecodeVTs.Location = new System.Drawing.Point(43, 53);
+			this.IDC_chkDecodeVTs.Name = "IDC_chkDecodeVTs";
+			this.IDC_chkDecodeVTs.Size = new System.Drawing.Size(103, 17);
+			this.IDC_chkDecodeVTs.TabIndex = 13;
+			this.IDC_chkDecodeVTs.Text = "decode VT data";
+			this.IDC_chkDecodeVTs.UseVisualStyleBackColor = true;
+			// 
 			// Form1
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(752, 558);
+			this.Controls.Add(this.IDC_chkDecodeVTs);
 			this.Controls.Add(this.btnGo3);
 			this.Controls.Add(this.btnGo2);
 			this.Controls.Add(this.lblTodoCnt);
@@ -238,6 +250,7 @@
 		private System.Windows.Forms.Label lblTodoCnt;
 		private System.Windows.Forms.Button btnGo2;
 		private System.Windows.Forms.Button btnGo3;
+		private System.Windows.Forms.CheckBox IDC_chkDecodeVTs;
 	}
 }
 
